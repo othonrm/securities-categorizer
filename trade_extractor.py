@@ -89,11 +89,13 @@ class SecurityClassifier:
                 classification = 'Reits'
             else:
                 classification = self._classify_with_symbol_search(symbol)
-                hasCalledAPI = True
+
                 if not classification:
                     print(
                         f"Falling back to heuristics for symbol: {symbol}")
                     classification = self._classify_with_heuristics(symbol)
+                else:
+                    hasCalledAPI = True
 
             results[symbol] = classification
             self.cache[symbol] = classification
