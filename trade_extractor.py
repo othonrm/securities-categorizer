@@ -52,9 +52,9 @@ class SecurityClassifier:
                 uncached_matches.append(symbolData)
 
         print(
-            f"\nFound {len(uncached_matches)} uncached matches data to process using AI")
+            f"\nFound {len(uncached_matches)} uncached matches data to process using AI.")
 
-        # self._update_cache_with_ai_classification(uncached_matches)
+        self._update_cache_with_ai_classification(uncached_matches)
 
         # Redo uncached symbols after AI classification
         uncached_symbols = []
@@ -82,17 +82,22 @@ class SecurityClassifier:
             # print(f"Classifying symbol with data: {symbol} - {symbolData}")
 
             if 'ETF' in symbolData[1]:
-                print(f"Classified {symbol} as ETF based on company name")
+                if '--debug' in sys.argv:
+                    print(
+                        f"\nClassified {symbol} as ETF based on company name")
                 classification = "ETF's Internacionais"
             elif 'REIT' in symbolData[1]:
-                print(f"Classified {symbol} as REIT based on company name")
+                if '--debug' in sys.argv:
+                    print(
+                        f"\nClassified {symbol} as REIT based on company name")
                 classification = 'Reits'
             else:
                 classification = self._classify_with_symbol_search(symbol)
 
                 if not classification:
-                    print(
-                        f"Falling back to heuristics for symbol: {symbol}")
+                    if '--debug' in sys.argv:
+                        print(
+                            f"\nFalling back to heuristics for symbol: {symbol}.")
                     classification = self._classify_with_heuristics(symbol)
                 else:
                     hasCalledAPI = True
@@ -165,19 +170,24 @@ class SecurityClassifier:
                 print(f"Error calling AI classifier: {e}")
                 return None
 
-            print(f"\nParsed AI response content: {data}")
+            if '--debug' in sys.argv:
+                print(f"\nParsed AI response content: {data}")
+
+            categorizedSymbolsQty = 0
 
             for symbol_entry in symbols_data:
                 symbol = symbol_entry[0]
                 classification = data.get(symbol, "NO_MATCH")
                 if classification == "NO_MATCH" or classification not in categoriesEnum:
-                    print(
-                        f"AI could not classify {symbol}, got {classification}.")
+                    if '--debug' in sys.argv:
+                        print(
+                            f"AI could not classify {symbol}, got {classification}.")
                 else:
+                    categorizedSymbolsQty += 1
                     self.cache[symbol] = classification
 
             print(
-                f"\nAI classification complete! {len(data)} symbols classified.")
+                f"\nAI classification complete! {categorizedSymbolsQty} symbols classified.")
 
             return
 
@@ -200,7 +210,8 @@ class SecurityClassifier:
                 'apikey': self.alpha_vantage_key
             }
 
-            print(f"sending request to {url} for {symbol}")
+            if '--debug' in sys.argv:
+                print(f"\nSending request to {url} for {symbol}.")
 
             response = requests.get(url, params=params, timeout=10)
             data = response.json()
@@ -223,7 +234,8 @@ class SecurityClassifier:
                             print(f"Unknown type for {symbol}: {match_type}")
                             return ''  # Default blank
 
-            print(f"No matches found for {symbol} in Symbol Search API")
+            if '--debug' in sys.argv:
+                print(f"No matches found for {symbol} in Symbol Search API.")
             return None
 
         except Exception as e:
@@ -248,12 +260,12 @@ class SecurityClassifier:
         # Check ETF patterns
         for pattern in etf_patterns:
             if re.match(pattern, symbol):
-                return 'ETF'
+                return "ETF's Internacionais"
 
         # Check REIT patterns
         for pattern in reit_patterns:
             if re.match(pattern, symbol):
-                return 'REIT'
+                return 'Reits'
 
         # Default to Stock
         return 'Stock'
@@ -283,9 +295,8 @@ class AdvancedTradeExtractor():
 
         if not matches:
             print(
-                "No trade matches found with advanced regex, falling back to basic parser")
-            # Fallback to parent method if regex fails
-            return super()._parse_trades(text)
+                "\n ⚠️ No trade matches found with regex. Please check the PDF format. ⚠️ \n")
+            return trades
 
         # Extract symbols for bulk classification
         symbols = [match[0] for match in matches]
@@ -295,7 +306,7 @@ class AdvancedTradeExtractor():
                 f"\nFound {len(symbols)} symbols to classify: {', '.join(set(symbols))}")
             symbol_classifications = self.classifier.classify_symbols_bulk(
                 list(set(symbols)), matches)
-            print("\nClassification complete!")
+            print("\nFinal classification complete!\n")
 
         for match in matches:
             try:
@@ -341,6 +352,8 @@ class AdvancedTradeExtractor():
         return None
 
     def extract_from_pdf(self, pdf_path: str) -> List[Dict]:
+        print(f"Starting PDF processing: {pdf_path}")
+        print("\n---------------------------------")
 
         # Not working
         warnings.filterwarnings("ignore", category=UserWarning,
@@ -361,7 +374,7 @@ class AdvancedTradeExtractor():
                 return trades
 
         except Exception as e:
-            print(f"Error reading PDF: {e}")
+            print(f"Error reading/processing PDF: {e}")
             return []
 
     def process_pdf(self, pdf_path: str, output_path: str = None):
@@ -369,21 +382,19 @@ class AdvancedTradeExtractor():
             print(f"PDF file not found: {pdf_path}")
             return
 
-        print(f"Starting PDF processing: {pdf_path}")
-        print("\n---------------------------------")
         trades = self.extract_from_pdf(pdf_path)
 
         if not trades:
             print("No trades found in PDF")
             return
 
-        # Print summary
-        print(f"\nFound {len(trades)} trades:")
-        # only print trades if --debug is enabled
+        # Print trade summary if --debug is enabled
         if '--debug' in sys.argv:
+            print(f"\nExtracted {len(trades)} trades:")
             for trade in trades:
                 print(
                     f"  {trade['Código Ativo']} ({trade['Categoria']}): {trade['Quantidade']} @ {trade['Preço unitário']}")
+            print(f"----------------------------------------")
 
         # Save to CSV
         if output_path is None:
@@ -394,14 +405,14 @@ class AdvancedTradeExtractor():
 
     def save_to_csv(self, trades: List[Dict], output_path: str):
         if not trades:
-            print("No trades to save")
+            print("\nNo trades to save")
             return
 
         df = pd.DataFrame(trades)
 
         # Save with semicolon separator to handle comma decimal separator
         df.to_csv(output_path, index=False, sep=';', decimal=',')
-        print(f"Saved {len(trades)} trades to {output_path}")
+        print(f"\nFound and saved {len(trades)} trades to {output_path}")
 
     def _format_number(self, number: float) -> str:
         return f"{number:.8f}".rstrip('0').rstrip('.').replace('.', ',')
@@ -409,7 +420,6 @@ class AdvancedTradeExtractor():
     def _format_date(self, date_str: str) -> str:
         if not date_str:
             return ""
-
         try:
             # Parse MM/DD/YYYY
             date_obj = datetime.strptime(date_str, '%m/%d/%Y')
@@ -433,7 +443,6 @@ def main():
     print("=======================================")
     print("🚀 Starting Advanced Trade Extractor v2")
     print("=======================================")
-    print("\n")
 
     print(f"📄 PDF File: {pdf_file}")
     if output_file:
@@ -453,7 +462,7 @@ def main():
     else:
         print("🔑 Using Alpha Vantage API for symbol classification")
 
-    print("\nUsing local Ollama models for additional classification support")
+    print("🤖 Using local Ollama models for additional classification support\n")
 
     extractor = AdvancedTradeExtractor(api_key)
     extractor.process_pdf(pdf_file, output_file)
