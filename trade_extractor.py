@@ -26,6 +26,24 @@ class SecurityClassifier:
             'ALPHA_VANTAGE_API_KEY')
         self.cache = {}
 
+        try:
+            with open(".symbol_cache", 'r') as cache_file:
+                content = cache_file.read()
+                print("file content:")
+                print(content)
+                try:
+                    parsedLocalCache = json.loads(content)
+                    self.cache = parsedLocalCache
+                except Exception as e:
+                    print(
+                        f"Something went wrong while parsing cached symbols: {e}\n")
+        except Exception as e:
+            if 'No such file or directory:' in str(e):
+                with open('.symbol_cache', 'w') as file:
+                    file.write("{}")
+            else:
+                print(f"Error loading cache file: {e}\n")
+
         # Limit because the Alpha Vantage free tier only supports 5 calls per minute
         self.rate_limit_delay = 12
 
@@ -39,6 +57,10 @@ class SecurityClassifier:
                 results[symbol] = self.cache[symbol]
             else:
                 uncached_symbols.append(symbol)
+
+        if len(self.cache) > 0:
+            print(
+                f"\nFound {len(symbols)-len(uncached_symbols)} of {len(symbols)} from {len(self.cache)} cached symbols.")
 
         if not uncached_symbols:
             return results
@@ -111,6 +133,10 @@ class SecurityClassifier:
                 print(
                     f"Waiting {self.rate_limit_delay}s till next call ({index + 1}/{len(uncached_symbols)})")
                 time.sleep(self.rate_limit_delay)
+
+        # After finishing categorization, write to cache file
+        with open('.symbol_cache', 'w') as file:
+            file.write(json.dumps(self.cache))
 
         return results
 
