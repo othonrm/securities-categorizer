@@ -1,0 +1,4 @@
+pandas==2.3.3
+pdfplumber==0.11.7
+python-dotenv==1.2.1
+Requests==2.32.5
